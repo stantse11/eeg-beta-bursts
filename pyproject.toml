@@ -1,0 +1,18 @@
+[project]
+name = "eeg"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "datalad>=1.8.0",
+    "marimo>=0.25.2",
+    "matplotlib>=3.11.2",
+    "mne>=1.13.2",
+    "mne-bids>=0.20.0",
+    "mne-icalabel>=0.10.0",
+    "notebook>=7.6.5",
+    "onnxruntime>=1.31.1",
+    "pandas>=3.1.1",
+    "scipy>=1.18.1",
+]
