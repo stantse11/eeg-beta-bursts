@@ -5,6 +5,13 @@ app = marimo.App(width="full")
 
 
 @app.cell
+def _(pd):
+    df = pd.read_csv("duration_profiles.csv")
+    df
+    return
+
+
+@app.cell(disabled=True)
 def _():
     from mne.preprocessing import ICA
     from mne_icalabel import label_components
@@ -72,7 +79,7 @@ def _():
                 peak_freq = freqs[peak_index]
                 bandpass_low_freq = peak_freq - HALF_BANDWIDTH
                 bandpass_high_freq = peak_freq + HALF_BANDWIDTH
-    
+
                 signal = raw.get_data(picks=electrode)[0]
                 signal = sosfiltfilt(
                     butter(
@@ -87,7 +94,7 @@ def _():
                 signal = (signal - signal.mean()) / signal.std()  # z-score normalisation
                 envelope = np.abs(hilbert(signal))                # amplitude envelope
                 signal, envelope = signal[trim:-trim], envelope[trim:-trim] # trim first and last second
-    
+
                 thresholds = np.percentile(envelope, PERCENTILES)
                 duration_profile = []
                 for threshold in thresholds:
@@ -143,13 +150,6 @@ def _():
             print(f"FAILED {subject} {task}: {e}")
             continue
     return (pd,)
-
-
-@app.cell
-def _(pd):
-    df = pd.read_csv("duration_profiles.csv")
-    df
-    return
 
 
 if __name__ == "__main__":

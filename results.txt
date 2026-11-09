@@ -1,0 +1,34 @@
+Subjects: 143
+Parkinson's disease: 115  Healthy controls: 28
+Number of features: 36
+
+=== Nested cross-validation (mean +/- standard deviation over 50 folds) ===
+roc_auc              burst features: 0.642 +/- 0.106   age only: 0.694 +/- 0.087
+balanced_accuracy    burst features: 0.610 +/- 0.093   age only: 0.658 +/- 0.114
+matthews_corrcoef    burst features: 0.188 +/- 0.156   age only: 0.264 +/- 0.193
+
+Out-of-fold AUC: 0.598  (95% bootstrap confidence interval 0.473 to 0.721)
+Confusion matrix (rows = true healthy control / Parkinson's, columns = predicted):
+[[12 16]
+ [36 79]]
+
+Permutation test: AUC = 0.641, mean permuted AUC = 0.501, p = 0.0499
+
+Best regularization strength: 0.01
+Top 15 features by absolute standardized coefficient:
+      feature  coefficient  absolute_coefficient
+ C6_intercept    -0.117547              0.117547
+    FC1_slope    -0.112768              0.112768
+     C6_slope    -0.099130              0.099130
+    CP1_slope    -0.085399              0.085399
+ C4_intercept    -0.075745              0.075745
+ C5_intercept    -0.063082              0.063082
+CP1_intercept    -0.060866              0.060866
+FC2_intercept    -0.058802              0.058802
+ C3_intercept    -0.058194              0.058194
+CP2_intercept    -0.056317              0.056317
+FC1_curvature    -0.052159              0.052159
+ C2_curvature    -0.047405              0.047405
+ C5_curvature    -0.045846              0.045846
+ C6_curvature     0.038961              0.038961
+ C1_intercept    -0.038148              0.038148
