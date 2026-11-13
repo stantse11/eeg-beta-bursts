@@ -1,3 +1,4 @@
+#%%
 from mne.preprocessing import ICA
 from mne_icalabel import label_components
 from mne_bids import BIDSPath, read_raw_bids
@@ -111,26 +112,61 @@ for subject, task, path in datasets:
                 print("--- map of electrodes ---")
                 raw.plot_sensors(kind="topomap", show_names=True)
                 print("--- intermediate results ---")
-                _, axs = plt.subplots(3, 1, figsize=(10, 10))
+                _, axs = plt.subplots(3, 1, figsize=(8, 8), layout="constrained")
+                # spectrum.plot()
                 # plot power spectral density
                 axs[0].set_title("power spectral density")
                 axs[0].plot(freqs, psds[0])
+                axs[0].set_xlabel("frequency (Hz)"); axs[0].set_ylabel("power (dB/Hz re 1 µV^2)");# axs[0].legend()
                 axs[0].axvspan(bandpass_low_freq, bandpass_high_freq, color="yellow", alpha=0.3, zorder=0)
                 axs[0].axvline(bandpass_low_freq, color="r", ls="-", lw=0.5)
                 axs[0].axvline(bandpass_high_freq, color="r", ls="-", lw=0.5)
                 axs[0].axvline(peak_freq, color="k", ls=":", lw=1.5)
                 # plot filtered signal and amplitude envelope
                 axs[1].set_title("filtered signal & amplitude envelope")
+                axs[1].set_xlabel("time (s)"); axs[1].set_ylabel("normalised z-score"); axs[1].legend()
                 samples = 1000
-                axs[1].plot(np.arange(samples) / sampling_frequency, signal[:samples])
-                axs[1].plot(np.arange(samples) / sampling_frequency, envelope[:samples], color="black", lw=2)
+                axs[1].plot(np.arange(samples) / sampling_frequency, signal[:samples], label="filtered signal")
+                axs[1].plot(np.arange(samples) / sampling_frequency, envelope[:samples], color="black", lw=2, label="amplitude envelope")
                 # plot burst duration profile
                 axs[2].set_title("burst duration profile")
                 axs[2].plot(PERCENTILES, duration_profile)
+                axs[2].set_xlabel("percentile of max z-score"); axs[2].set_ylabel("mean burst duration (s)");# axs[0].legend()
                 plt.show()
                 verbose = False # only plot the first one
-        dataframe_rows.extend(electrode_rows)
-        pd.DataFrame(dataframe_rows).to_csv("duration_profiles.csv", index=False)
+                break
+            break
+        # dataframe_rows.extend(electrode_rows)
+        # pd.DataFrame(dataframe_rows).to_csv("duration_profiles.csv", index=False)
+        break
     except Exception as e:
         print(f"FAILED {subject} {task}: {e}")
         continue
+
+# %%
+
+
+_, axs = plt.subplots(3, 1, figsize=(8, 8), layout="constrained")
+# spectrum.plot()
+# plot power spectral density
+axs[0].set_title("power spectral density")
+axs[0].plot(freqs, psds[0])
+axs[0].set_xlabel("frequency (Hz)"); axs[0].set_ylabel("power (dB/Hz re 1 µV^2)");# axs[0].legend()
+axs[0].axvspan(bandpass_low_freq, bandpass_high_freq, color="yellow", alpha=0.3, zorder=0)
+axs[0].axvline(bandpass_low_freq, color="r", ls="-", lw=0.5, label="bandpass filter bounds (+/-3Hz)")
+axs[0].axvline(bandpass_high_freq, color="r", ls="-", lw=0.5)
+axs[0].axvline(peak_freq, color="k", ls=":", lw=1.5, label="power spectrum peak frequency")
+axs[0].legend()
+# plot filtered signal and amplitude envelope
+axs[1].set_title("filtered signal & amplitude envelope")
+axs[1].set_xlabel("time (s)"); axs[1].set_ylabel("normalised z-score"); 
+samples = 1000
+axs[1].plot(np.arange(samples) / sampling_frequency, signal[:samples], label="filtered signal")
+axs[1].plot(np.arange(samples) / sampling_frequency, envelope[:samples], color="black", lw=2, label="amplitude envelope")
+axs[1].legend()
+# plot burst duration profile
+axs[2].set_title("burst duration profile")
+axs[2].plot(PERCENTILES, duration_profile)
+axs[2].set_xlabel("percentile of max z-score"); axs[2].set_ylabel("mean burst duration (s)");# axs[0].legend()
+plt.show()
+# %%
