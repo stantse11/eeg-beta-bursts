@@ -18,10 +18,27 @@ from sklearn.model_selection import (
 )
 from sklearn.metrics import roc_auc_score, roc_curve, confusion_matrix
 
-TASK = "walk"
+TASK = "rest"
 #%% load data
 burst_table = pd.read_csv("duration_profiles.csv")
 participant_table = pd.read_csv("ds007526/participants.tsv", sep="\t", na_values="n/a")
+table = participant_table.pivot_table(
+    index="group",
+    columns="sex",
+    values="age",
+    aggfunc=["mean", "std", "count"],
+    margins=True
+)
+table = (
+    table
+    .rename(columns={"mean": "Mean age (years)", "std":"Age standard deviation (years)", "count": "Participants (n)"}, level=0)
+    .rename(columns={"F": "Female", "M": "Male"}, level=1)
+    .rename(index={"HC": "Healthy controls", "PD": "Parkinson's disease"})
+    .rename_axis(index="Group", columns=[None, "Sex"])
+    .round(1)
+)
+table.to_html("demographics.html")
+#%%
 
 threshold_columns = [str(threshold) for threshold in range(20, 100, 5)]
 threshold_values = np.array(range(20, 100, 5), dtype=float)
@@ -43,8 +60,10 @@ wide_features = burst_table.pivot_table(
     values=["intercept", "slope", "curvature"],
     aggfunc="mean",
 )
+wide_features
 wide_features.columns = [f"{electrode}_{feature_name}" for feature_name, electrode in wide_features.columns]
 feature_columns = list(wide_features.columns)
+feature_columns
 full_table = participant_table.merge(wide_features, left_on="participant_id", right_index=True, how="inner")
 full_table = full_table.dropna(subset=["group", "age"]).reset_index(drop=True)
 full_table.replace({"M": 0.0, "F": 1.0}, inplace=True)
@@ -109,69 +128,124 @@ print(durations_and_demographics_results["test_roc_auc"].mean())
 print("ROC-AUC score using demographics only:")
 print(demographics_only_results["test_roc_auc"].mean())
 
-# #%%
-# # ----------------------------------------------------------------------
-# # 6. Out-of-fold predictions, bootstrap confidence interval, confusion matrix, ROC curve
-# # ----------------------------------------------------------------------
-# prediction_cross_validation = StratifiedKFold(n_splits=5, shuffle=True, random_state=2)
-# predicted_probabilities = cross_val_predict(
-#     burst_model, durations_and_demographics_feature_matrix, labels, cv=prediction_cross_validation,
-#     method="predict_proba", n_jobs=-1,
-# )[:, 1]
-# predicted_labels = (predicted_probabilities >= 0.5).astype(int)
+#%%
+# ----------------------------------------------------------------------
+# 6. Out-of-fold predictions, bootstrap confidence interval, confusion matrix, ROC curve
+# ----------------------------------------------------------------------
+prediction_cross_validation = StratifiedKFold(n_splits=5, shuffle=True, random_state=2)
+predicted_probabilities = cross_val_predict(
+    durations_and_demographics_model, durations_and_demographics_feature_matrix, labels, cv=prediction_cross_validation,
+    method="predict_proba", n_jobs=-1,
+)[:, 1]
+predicted_labels = (predicted_probabilities >= 0.5).astype(int)
 
-# observed_auc = roc_auc_score(labels, predicted_probabilities)
+observed_auc = roc_auc_score(labels, predicted_probabilities)
 
-# random_generator = np.random.default_rng(0)
-# bootstrap_aucs = []
-# for bootstrap_index in range(2000):
-#     resampled_indices = random_generator.integers(0, len(labels), len(labels))
-#     if len(np.unique(labels[resampled_indices])) < 2:
-#         continue
-#     bootstrap_aucs.append(roc_auc_score(labels[resampled_indices], predicted_probabilities[resampled_indices]))
-# lower_bound, upper_bound = np.percentile(bootstrap_aucs, [2.5, 97.5])
+random_generator = np.random.default_rng(0)
+bootstrap_aucs = []
+for bootstrap_index in range(2000):
+    resampled_indices = random_generator.integers(0, len(labels), len(labels))
+    if len(np.unique(labels[resampled_indices])) < 2:
+        continue
+    bootstrap_aucs.append(roc_auc_score(labels[resampled_indices], predicted_probabilities[resampled_indices]))
+lower_bound, upper_bound = np.percentile(bootstrap_aucs, [2.5, 97.5])
 
-# print(f"\nOut-of-fold AUC: {observed_auc:.3f}  (95% bootstrap confidence interval {lower_bound:.3f} to {upper_bound:.3f})")
-# print("Confusion matrix (rows = true healthy control / Parkinson's, columns = predicted):")
-# print(confusion_matrix(labels, predicted_labels))
+print(f"\nOut-of-fold AUC: {observed_auc:.3f}  (95% bootstrap confidence interval {lower_bound:.3f} to {upper_bound:.3f})")
+print("Confusion matrix (rows = true healthy control / Parkinson's, columns = predicted):")
+print(confusion_matrix(labels, predicted_labels))
 
-# false_positive_rate, true_positive_rate, _ = roc_curve(labels, predicted_probabilities)
-# plt.figure(figsize=(5, 5))
-# plt.plot(false_positive_rate, true_positive_rate, label=f"AUC = {observed_auc:.2f}")
-# plt.plot([0, 1], [0, 1], linestyle="--", color="grey")
-# plt.xlabel("False positive rate")
-# plt.ylabel("True positive rate")
-# plt.title("Healthy control vs Parkinson's disease (out-of-fold)")
-# plt.legend()
-# plt.tight_layout()
-# plt.savefig("roc_curve.png", dpi=200)
+#%%
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.metrics import ConfusionMatrixDisplay
 
-# #%%
-# # ----------------------------------------------------------------------
-# # 7. Permutation test: is the AUC better than chance?
-# #    (shuffles labels 500 times and repeats the whole nested procedure each time;
-# #     lower n_permutations if it runs too slowly)
-# # ----------------------------------------------------------------------
-# true_score, permuted_scores, permutation_p_value = permutation_test_score(
-#     burst_model, durations_and_demographics_feature_matrix, labels,
-#     scoring="roc_auc",
-#     cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=3),
-#     n_permutations=500, n_jobs=-1, random_state=0,
-# )
-# print(f"\nPermutation test: AUC = {true_score:.3f}, mean permuted AUC = {permuted_scores.mean():.3f}, "
-#       f"p = {permutation_p_value:.4f}")
+cm = confusion_matrix(labels, predicted_labels)
+#%% plot confusion matrix
+disp = ConfusionMatrixDisplay(cm, display_labels=["HC", "PD"])
+disp.plot(cmap="Blues", values_format="d")
+plt.title("Confusion matrix")
+plt.show()
+#%%
 
-# #%%
-# # ----------------------------------------------------------------------
-# # 8. Which features drive the classifier? (fit on all data, for interpretation only)
-# # ----------------------------------------------------------------------
-# burst_model.fit(durations_and_demographics_feature_matrix, labels)
-# final_coefficients = burst_model.best_estimator_.named_steps["classifier"].coef_[0]
+false_positive_rate, true_positive_rate, _ = roc_curve(labels, predicted_probabilities)
+plt.figure(figsize=(5, 5))
+plt.plot(false_positive_rate, true_positive_rate, label=f"AUC = {observed_auc:.2f}")
+plt.plot([0, 1], [0, 1], linestyle="--", color="grey")
+plt.xlabel("False positive rate")
+plt.ylabel("True positive rate")
+plt.title("Healthy control vs Parkinson's disease (out-of-fold)")
+plt.legend()
+plt.tight_layout()
+plt.savefig("roc_curve.png", dpi=200)
 
-# coefficient_table = pd.DataFrame({"feature": feature_columns, "coefficient": final_coefficients})
-# coefficient_table["absolute_coefficient"] = coefficient_table["coefficient"].abs()
-# coefficient_table = coefficient_table.sort_values("absolute_coefficient", ascending=False)
+#%%
+# ----------------------------------------------------------------------
+# 7. Permutation test: is the AUC better than chance?
+#    (shuffles labels 500 times and repeats the whole nested procedure each time;
+#     lower n_permutations if it runs too slowly)
+# ----------------------------------------------------------------------
+true_score, permuted_scores, permutation_p_value = permutation_test_score(
+    durations_and_demographics_model, durations_and_demographics_feature_matrix, labels,
+    # demographics_only_model, demographics_only_feature_matrix, labels,
+    scoring="roc_auc",
+    cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=3),
+    n_permutations=100, n_jobs=-1, random_state=0, verbose=True
+)
+print(f"\nPermutation test: AUC = {true_score:.3f}, mean permuted AUC = {permuted_scores.mean():.3f}, "
+      f"p = {permutation_p_value:.4f}")
 
-# print("\nBest regularization strength:", burst_model.best_params_["classifier__C"])
-# print("Top 15 features by absolute standardized coefficient:")
-# print(coefficient_table.head(15).to_string(index=False))
+#%%
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(6, 4))
+ax.hist(permuted_scores, bins=30, color="0.7", edgecolor="white",
+        label="permuted labels")
+ax.axvline(true_score, color="red", lw=2,
+           label=f"actual AUC = {true_score:.3f}, p = {permutation_p_value:.3f}")
+ax.set(xlabel="ROC AUC", ylabel="Number of permutations")
+ax.legend()
+plt.tight_layout()
+plt.show()
+
+#%%
+# ----------------------------------------------------------------------
+# 8. Which features drive the classifier? (fit on all data, for interpretation only)
+# ----------------------------------------------------------------------
+durations_and_demographics_model.fit(durations_and_demographics_feature_matrix, labels)
+final_coefficients = durations_and_demographics_model.best_estimator_.named_steps["classifier"].coef_[0]
+
+coefficient_table = pd.DataFrame({"feature": feature_columns, "coefficient": final_coefficients})
+coefficient_table["absolute_coefficient"] = coefficient_table["coefficient"].abs()
+coefficient_table = coefficient_table.sort_values("absolute_coefficient", ascending=False)
+
+print("\nBest regularization strength:", durations_and_demographics_model.best_params_["classifier__C"])
+print("Top 15 features by absolute standardized coefficient:")
+print(coefficient_table.head(15).to_string(index=False))
+
+# %%
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
+feature_names = feature_columns + ["age", "sex"]
+# X: (n_samples, n_features) array or DataFrame, y: labels
+# feature_names = np.array(X.columns)      # or a list of strings if X is a NumPy array
+
+rf = RandomForestClassifier(n_estimators=500, class_weight="balanced",
+                            random_state=0, n_jobs=-1)
+rf.fit(durations_and_demographics_feature_matrix, labels)
+
+importances = rf.feature_importances_
+std = np.std([tree.feature_importances_ for tree in rf.estimators_], axis=0)
+
+order = np.argsort(importances)           # ascending, so the biggest ends up at the top of barh
+top = order[-15:]                         # show the 15 most important
+
+fig, ax = plt.subplots(figsize=(6, 5))
+ax.barh(np.array(feature_names)[top], importances[top], color="C0", ecolor="0.6")
+ax.set(xlabel="Mean decrease in impurity", title="Random forest feature importance")
+plt.tight_layout()
+plt.show()
+# %%
+np.array(feature_names)[top]
+
+# %%
