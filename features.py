@@ -143,11 +143,8 @@ for subject, task, path in datasets:
         print(f"FAILED {subject} {task}: {e}")
         continue
 
-# %%
-
-
+# %% plotting an example of features
 _, axs = plt.subplots(3, 1, figsize=(8, 8), layout="constrained")
-# spectrum.plot()
 # plot power spectral density
 axs[0].set_title("power spectral density")
 axs[0].plot(freqs, psds[0])

@@ -1,4 +1,4 @@
-#%%
+#%% visualising ICA
 from mne.preprocessing import ICA
 from mne_icalabel import label_components
 from mne_bids import BIDSPath, read_raw_bids
@@ -55,5 +55,3 @@ plt.plot(t[:len(after)], after, color="C0", label="after ICA", lw=2)
 plt.title(f"Example peak of ICA component {comp} ({labels['labels'][comp]})")
 plt.xlabel("time (s)"); plt.ylabel("µV"); plt.legend()
 plt.show()
-
-# %%
